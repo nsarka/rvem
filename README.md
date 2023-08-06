@@ -30,3 +30,12 @@ make -j
 
 Make sure `/opt/riscv/bin` is in your path before running `make -j`. I don't know why it doesn't just use CC, but it didn't seem to work without passing CC either.
 
+
+### Run a test
+
+```
+cd custom_tests
+./build.sh rsort/rsort
+cd ../emul
+python3 rvem.py ../custom_tests/rsort/rsort
+```
