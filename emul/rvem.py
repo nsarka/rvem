@@ -267,9 +267,11 @@ def syscall(s, a0=0, a1=0, a2=0, a3=0, a4=0, a5=0):
     # syscall number is passed in a7
     ret = 0
     if s == Syscall.SYS_close:
-        print("  ecall close")
+        #print("  ecall close")
+        pass
     elif s == Syscall.SYS_fstat:
-        print("  ecall fstat")
+        #print("  ecall fstat")
+        pass
     elif s == Syscall.SYS_isatty:
         raise Exception(
             "What is the system call isatty from puts.c in newlib? It didnt seem to be called but here we are. I added SYS_isatty = -1 just so it can be caught here")
@@ -278,20 +280,23 @@ def syscall(s, a0=0, a1=0, a2=0, a3=0, a4=0, a5=0):
     elif s == Syscall.SYS_read:
         print("  ecall read")
     elif s == Syscall.SYS_sbrk or s == Syscall.SYS_brk:
-        print("  ecall brk")
+        #print("  ecall brk")
+        pass
     elif s == Syscall.SYS_write:
         handle = a0
         buffer = a1
         count = a2
-        print("  ecall write:\n    handle: %d\n    buffer: 0x%x\n    count: %d" % (
-            handle, buffer, count))
+        #print("  ecall write:\n    handle: %d\n    buffer: 0x%x\n    count: %d" % (handle, buffer, count))
         buffer = memory.read(buffer, count)
-        print(buffer.decode())
+        print(buffer.decode(), end="")
         ret = count
+    elif s == Syscall.SYS_mkdir:
+        #path = memory.read()
+        print("Mkdir")
     elif s == Syscall.SYS_init:
-        print("Draw to screen here")
+        print("SYS_init called")
     elif s == Syscall.SYS_draw:
-        print("Draw to screen here (pal version)")
+        print("SYS_draw")
     elif s == Syscall.SYS_exit:
         print("  ecall exit")
         sys.exit()

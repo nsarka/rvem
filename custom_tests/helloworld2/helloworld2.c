@@ -7,7 +7,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
-//#include <string.h>
+#include <string.h>
 
 
 void ecall_func(uint32_t num, uint32_t a0, uint32_t a1, uint32_t a2)
@@ -26,7 +26,7 @@ int main(int argc, const char** args)
     printf("Hello World!\n");
 
     char* str = "ecall test\n";
-    ecall_func(64, 1, (uint32_t)str, 11);
+    ecall_func(64, 1, (uint32_t)str, strlen(str) + 1);
 
     return 0;
 }
