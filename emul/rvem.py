@@ -157,6 +157,7 @@ memory = None
 def reset():
     global regfile, memory
     regfile = Regfile()
+    regfile.set("sp", 0xffffffff) # stack pointer reset to the highest address
     memory = Memory()  # OldMemory()
 
 
@@ -257,6 +258,8 @@ class Syscall(Enum):
     SYS_time = 1062
     SYS_getmainvars = 2011
     SYS_isatty = -1
+    SYS_init = 0xbeef0 # init
+    SYS_draw = 0xbeef1 # draw
 
 
 def syscall(s, a0=0, a1=0, a2=0, a3=0, a4=0, a5=0):
@@ -265,22 +268,17 @@ def syscall(s, a0=0, a1=0, a2=0, a3=0, a4=0, a5=0):
     ret = 0
     if s == Syscall.SYS_close:
         print("  ecall close")
-        pass
     elif s == Syscall.SYS_fstat:
         print("  ecall fstat")
-        pass
     elif s == Syscall.SYS_isatty:
         raise Exception(
             "What is the system call isatty from puts.c in newlib? It didnt seem to be called but here we are. I added SYS_isatty = -1 just so it can be caught here")
     elif s == Syscall.SYS_lseek:
         print("  ecall lseek")
-        pass
     elif s == Syscall.SYS_read:
         print("  ecall read")
-        pass
     elif s == Syscall.SYS_sbrk or s == Syscall.SYS_brk:
         print("  ecall brk")
-        pass
     elif s == Syscall.SYS_write:
         handle = a0
         buffer = a1
@@ -289,7 +287,11 @@ def syscall(s, a0=0, a1=0, a2=0, a3=0, a4=0, a5=0):
             handle, buffer, count))
         buffer = memory.read(buffer, count)
         print(buffer.decode())
-        pass
+        ret = count
+    elif s == Syscall.SYS_init:
+        print("Draw to screen here")
+    elif s == Syscall.SYS_draw:
+        print("Draw to screen here (pal version)")
     elif s == Syscall.SYS_exit:
         print("  ecall exit")
         sys.exit()
@@ -300,12 +302,18 @@ def syscall(s, a0=0, a1=0, a2=0, a3=0, a4=0, a5=0):
 
 def ws(addr, dat):
     global memory
+    if addr < 0:
+        print("Error...dumping")
+        dump()
+        raise Exception("PC: 0x%x write out of bounds 0x%x" % (regfile[PC], addr))
     memory.write(addr, dat)
 
 
 def r32(addr):
     if addr < 0:
-        raise Exception("read out of bounds: 0x%x" % addr)
+        print("Error...dumping")
+        dump()
+        raise Exception("PC: 0x%x read out of bounds 0x%x" % (regfile[PC], addr))
     return struct.unpack("<I", memory.read(addr, 4))[0]
 
 
@@ -373,7 +381,7 @@ def cond(funct3, vs1, vs2):
         ret = vs1 >= vs2
     else:
         dump()
-        raise Exception("write %r funct3 %r" % (opcode, funct3))
+        raise Exception("write funct3 %r" % (funct3))
     return ret
 
 
@@ -464,34 +472,6 @@ def step():
     return True
 
 
-'''
-# old main from geohot
-if __name__ == "__main__":
-  if not os.path.isdir('test-cache'):
-    os.mkdir('test-cache')
-  import glob
-  import binascii
-  for x in glob.glob("riscv-tests/isa/rv32ui-p-*"):
-    if x.endswith('.dump'):
-      continue
-    with open(x, 'rb') as f:
-      reset()
-      print("test", x)
-      e = ELFFile(f)
-      for s in e.iter_segments():
-        ws(s.header.p_paddr, s.data())
-      #with open("test-cache/%s" % x.split("/")[-1], "wb") as g:
-        #g.write(b'\n'.join([binascii.hexlify(memory[i:i+4][::-1]) for i in range(0,len(memory),4)]))
-        #g.write(b'\n'.join([binascii.hexlify(memory[i:i+1]) for i in range(0,len(memory))]))
-      regfile[PC] = 0x80000000
-      inscnt = 0
-      while step():
-        inscnt += 1
-      print("  ran %d instructions" % inscnt)
-'''
-
-
-# My main
 if __name__ == "__main__":
     with open(args.binary, 'rb') as f:
         reset()
@@ -501,15 +481,15 @@ if __name__ == "__main__":
 
         print("Entry point is", hex(e.header.e_entry))
         regfile[PC] = e.header.e_entry
-        inscnt = 0
-        hit_bp = False
+        INSCOUNT = 0
+        #hit_bp = False
         while step():
-            if False and regfile[PC] == 0x134a4 or hit_bp:
-                hit_bp = True
-                print("Breakpoint")
-                dump()
-                input()
-            inscnt += 1
-            if inscnt % 100000 == 0:
-                print("Ran %d instructions" % inscnt)
-        print("  ran %d instructions" % inscnt)
+            #if regfile[PC] == 0x10208 or hit_bp:
+            #    hit_bp = True
+            #    print("Breakpoint")
+            #    dump()
+            #    input()
+            INSCOUNT += 1
+            if INSCOUNT % 100000 == 0:
+                print("Ran %d instructions" % INSCOUNT)
+        print("  ran %d instructions" % INSCOUNT)
