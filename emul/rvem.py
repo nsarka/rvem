@@ -18,8 +18,10 @@ parser.add_argument('-v', '--verbose',
 
 args = parser.parse_args()
 
-print("Running test", args.binary, "with verbose set to", args.verbose)
+rvem = "[RVEM]"
+print(rvem, "Running test", args.binary, "with verbose set to", args.verbose)
 
+needs_break = False
 
 # start of geohot emul program
 
@@ -72,11 +74,22 @@ class OldMemory:
     def __len__(self):
         return len(self.memory)
 
+regfile = None
+memory = None
+original_break_addr = 0 # where the data segment ends and the heap begins
 
 class Memory:
     def __init__(self):
         self.mem = {}
         self.page_size = 4096
+        self.break_addr = original_break_addr
+
+    def set_brk(self, set_to):
+        # what is this *facepalm*
+        # this is not what the docs say for how brk should work
+        if set_to != 0:
+            self.break_addr = set_to
+        return self.break_addr
 
     def get_nth_page_addr(self, addr, i):
         # get the starting address of the nth page after the one addr is in
@@ -86,7 +99,7 @@ class Memory:
         # Split up into 3 phases--beginning page, n middle pages, and a last page
         page = self.get_nth_page_addr(addr, 0)
         if page not in self.mem:
-            print(
+            print(rvem,
                 f"PC {hex(regfile[PC])}: Uninitialized read of size {sz} at address {hex(addr)} in page {hex(page)}")
             self.mem[page] = b'\x00'*self.page_size
         next_page = self.get_nth_page_addr(addr, 1)
@@ -148,10 +161,6 @@ class Memory:
             if page not in self.mem:
                 self.mem[page] = b'\x00'*self.page_size
             self.mem[page] = data[:sz] + self.mem[page][sz:]
-
-
-regfile = None
-memory = None
 
 
 def reset():
@@ -244,7 +253,7 @@ class Syscall(Enum):
     SYS_geteuid = 175
     SYS_getgid = 176
     SYS_getegid = 177
-    SYS_brk = SYS_sbrk = 214
+    SYS_brk = 214 # or should this be sbrk? or should sbrk be its own syscall?
     SYS_munmap = 215
     SYS_mremap = 216
     SYS_mmap = 222
@@ -267,21 +276,22 @@ def syscall(s, a0=0, a1=0, a2=0, a3=0, a4=0, a5=0):
     # syscall number is passed in a7
     ret = 0
     if s == Syscall.SYS_close:
-        #print("  ecall close")
-        pass
+        print(rvem, "ecall close")
+    elif s == Syscall.SYS_open:
+        print(rvem, "ecall open")
     elif s == Syscall.SYS_fstat:
-        #print("  ecall fstat")
-        pass
+        print(rvem, "ecall fstat")
     elif s == Syscall.SYS_isatty:
         raise Exception(
             "What is the system call isatty from puts.c in newlib? It didnt seem to be called but here we are. I added SYS_isatty = -1 just so it can be caught here")
     elif s == Syscall.SYS_lseek:
-        print("  ecall lseek")
+        print(rvem, "ecall lseek")
     elif s == Syscall.SYS_read:
-        print("  ecall read")
-    elif s == Syscall.SYS_sbrk or s == Syscall.SYS_brk:
-        #print("  ecall brk")
-        pass
+        print(rvem, "ecall read")
+    elif s == Syscall.SYS_brk:
+        set_to = a0
+        #print("  ecall brk:\n    a0: %d" % (set_to))
+        ret = memory.set_brk(set_to)
     elif s == Syscall.SYS_write:
         handle = a0
         buffer = a1
@@ -292,13 +302,13 @@ def syscall(s, a0=0, a1=0, a2=0, a3=0, a4=0, a5=0):
         ret = count
     elif s == Syscall.SYS_mkdir:
         #path = memory.read()
-        print("Mkdir")
+        print(rvem, "ecall mkdir")
     elif s == Syscall.SYS_init:
-        print("SYS_init called")
+        print(rvem, "ecall init")
     elif s == Syscall.SYS_draw:
-        print("SYS_draw")
+        print(rvem, "ecall draw")
     elif s == Syscall.SYS_exit:
-        print("  ecall exit")
+        print(rvem, "ecall exit")
         sys.exit()
     else:
         raise Exception("Unimplemented system call %d" % s.value)
@@ -483,18 +493,25 @@ if __name__ == "__main__":
         e = ELFFile(f)
         for s in e.iter_segments():
             ws(s.header.p_paddr, s.data())
+            if s.header.p_flags == 6:
+                # if flags RW were set (out of RWE with R=4, W=2, E=1?) in this segment, it's the segment with the data section
+                # find the heap address and set it to the break address (fancy name for "end of segment with the data section")
+                original_break_addr = s.header.p_offset + s.header.p_memsz
+                memory.break_addr = original_break_addr
+                print(rvem, "Heap start is 0x%x" % original_break_addr)
 
-        print("Entry point is", hex(e.header.e_entry))
+        print(rvem, "Entry point is", hex(e.header.e_entry))
         regfile[PC] = e.header.e_entry
         INSCOUNT = 0
-        #hit_bp = False
+        hit_bp = False
+        needs_break = False
         while step():
-            #if regfile[PC] == 0x10208 or hit_bp:
-            #    hit_bp = True
-            #    print("Breakpoint")
-            #    dump()
-            #    input()
+            if hit_bp or needs_break: # regfile[PC] == 0x20110 or 
+                hit_bp = True
+                print(rvem, "Breakpoint")
+                dump()
+                input()
             INSCOUNT += 1
             if INSCOUNT % 100000 == 0:
-                print("Ran %d instructions" % INSCOUNT)
-        print("  ran %d instructions" % INSCOUNT)
+                print(rvem, "Ran %d instructions" % INSCOUNT)
+        print(rvem, "  ran %d instructions" % INSCOUNT)

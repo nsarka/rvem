@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
 
 
 void ecall_func(uint32_t num, uint32_t a0, uint32_t a1, uint32_t a2)
@@ -23,10 +24,32 @@ void ecall_func(uint32_t num, uint32_t a0, uint32_t a1, uint32_t a2)
 
 int main(int argc, const char** args)
 {
-    printf("Hello World!\n");
+    char* heap_str = malloc(64);
 
-    char* str = "ecall test\n";
-    ecall_func(64, 1, (uint32_t)str, strlen(str) + 1);
+    if (heap_str == NULL) {
+        printf("failure: x null\n");
+        return 1;
+    }
+
+    char* str = "ecall test123\n";
+    strcpy(heap_str, str);
+
+    //printf("printing string at address 0x%x\n", heap_str);
+    ecall_func(64, 1, (uint32_t)heap_str, strlen(heap_str) + 1);
+
+    /*
+        for (int i = 0; i < 100; i++) {
+            char* x = malloc(1);
+            if (x == NULL) {
+                printf("failure: x null\n");
+                return 1;
+            }
+            printf("%c\n", x);
+        }
+
+        printf("success\n");
+        free(heap_str);
+    */
 
     return 0;
 }
