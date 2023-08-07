@@ -479,7 +479,11 @@ def step():
     if pend_is_new_pc:
         if reg_writeback:
             regfile[rd] = vpc + 4
+        old_pc = regfile[PC]
         regfile[PC] = pend
+        if regfile[PC] == old_pc:
+            print(rvem, "Instruction jumped to itself. Doom does this on error. Exiting.")
+            sys.exit(1)
     else:
         if reg_writeback:
             regfile[rd] = pend
