@@ -277,8 +277,21 @@ def syscall(s, a0=0, a1=0, a2=0, a3=0, a4=0, a5=0):
     ret = 0
     if s == Syscall.SYS_close:
         print(rvem, "ecall close")
+        fd = a0
+        os.close(fd)
     elif s == Syscall.SYS_open:
-        print(rvem, "ecall open")
+        path_addr = a0
+        path = memory.read(path_addr, 256).split(b'\x00')[0].decode()
+        flags = a1
+        mode = a2
+        print(rvem, "ecall open: ", path, flags, mode)
+        try:
+            fd = os.open(path, flags, mode)
+            ret = fd
+            print(rvem, "Opened path", path, "as fd", fd)
+        except FileNotFoundError as e:
+            print(rvem, e)
+            ret = -1
     elif s == Syscall.SYS_fstat:
         print(rvem, "ecall fstat")
     elif s == Syscall.SYS_isatty:
@@ -286,23 +299,39 @@ def syscall(s, a0=0, a1=0, a2=0, a3=0, a4=0, a5=0):
             "What is the system call isatty from puts.c in newlib? It didnt seem to be called but here we are. I added SYS_isatty = -1 just so it can be caught here")
     elif s == Syscall.SYS_lseek:
         print(rvem, "ecall lseek")
+        fd = a0
+        pos = a1
+        how = a2
+        ret = os.lseek(fd, pos, how)
     elif s == Syscall.SYS_read:
         print(rvem, "ecall read")
+        fd = a0
+        buf_addr = a1
+        count = a2
+        data = os.read(fd, count)
+        memory.write(buf_addr, data)
+        ret = count
     elif s == Syscall.SYS_brk:
         set_to = a0
         #print("  ecall brk:\n    a0: %d" % (set_to))
         ret = memory.set_brk(set_to)
     elif s == Syscall.SYS_write:
-        handle = a0
+        fd = a0
         buffer = a1
         count = a2
-        #print("  ecall write:\n    handle: %d\n    buffer: 0x%x\n    count: %d" % (handle, buffer, count))
+        print("  ecall write:    fd: %d    buffer: 0x%x    count: %d" % (fd, buffer, count))
         buffer = memory.read(buffer, count)
-        print(buffer.decode(), end="")
-        ret = count
+        ret = os.write(fd, buffer)
     elif s == Syscall.SYS_mkdir:
-        #path = memory.read()
-        print(rvem, "ecall mkdir")
+        path_addr = a0
+        path = memory.read(path_addr, 256).split(b'\x00')[0].decode()
+        mode = a1
+        print(rvem, "ecall mkdir:", path, mode)
+        try:
+            ret = os.mkdir(path, mode)
+        except OSError as e:
+            if e.errno != 17:
+                print(rvem, e)
     elif s == Syscall.SYS_init:
         print(rvem, "ecall init")
     elif s == Syscall.SYS_draw:
