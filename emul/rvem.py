@@ -1,10 +1,12 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3 -u
 
 from enum import Enum
 import argparse
 import sys
 import os
 import struct
+import pygame
+
 from elftools.elf.elffile import ELFFile
 
 parser = argparse.ArgumentParser(
@@ -77,6 +79,7 @@ class OldMemory:
 regfile = None
 memory = None
 original_break_addr = 0 # where the data segment ends and the heap begins
+screen = None
 
 class Memory:
     def __init__(self):
@@ -276,9 +279,12 @@ def syscall(s, a0=0, a1=0, a2=0, a3=0, a4=0, a5=0):
     # syscall number is passed in a7
     ret = 0
     if s == Syscall.SYS_close:
-        print(rvem, "ecall close")
         fd = a0
-        os.close(fd)
+        if fd == 0 or fd == 1 or fd == 2:
+            print(rvem, "program tried to close one of stdin, stdout, or stderr. Ignoring")
+        else:
+            #print(rvem, "ecall close fd", fd)
+            os.close(fd)
     elif s == Syscall.SYS_open:
         path_addr = a0
         path = memory.read(path_addr, 256).split(b'\x00')[0].decode()
@@ -288,7 +294,7 @@ def syscall(s, a0=0, a1=0, a2=0, a3=0, a4=0, a5=0):
         try:
             fd = os.open(path, flags, mode)
             ret = fd
-            print(rvem, "Opened path", path, "as fd", fd)
+            #print(rvem, "Opened path", path, "as fd", fd)
         except FileNotFoundError as e:
             print(rvem, e)
             ret = -1
@@ -298,19 +304,19 @@ def syscall(s, a0=0, a1=0, a2=0, a3=0, a4=0, a5=0):
         raise Exception(
             "What is the system call isatty from puts.c in newlib? It didnt seem to be called but here we are. I added SYS_isatty = -1 just so it can be caught here")
     elif s == Syscall.SYS_lseek:
-        print(rvem, "ecall lseek")
         fd = a0
         pos = a1
         how = a2
         ret = os.lseek(fd, pos, how)
+        #print(rvem, "ecall lseek", "fd", fd, "pos", pos, "how", how, "ret", ret)
     elif s == Syscall.SYS_read:
-        print(rvem, "ecall read")
         fd = a0
         buf_addr = a1
         count = a2
         data = os.read(fd, count)
         memory.write(buf_addr, data)
-        ret = count
+        ret = len(data)
+        print(rvem, "ecall read", "fd", fd, "buf_addr", hex(buf_addr), "count", count, "data", data, "ret", ret)
     elif s == Syscall.SYS_brk:
         set_to = a0
         #print("  ecall brk:\n    a0: %d" % (set_to))
@@ -319,7 +325,8 @@ def syscall(s, a0=0, a1=0, a2=0, a3=0, a4=0, a5=0):
         fd = a0
         buffer = a1
         count = a2
-        print("  ecall write:    fd: %d    buffer: 0x%x    count: %d" % (fd, buffer, count))
+        #if fd != 0 and fd != 1 and fd != 2:
+            #print("  ecall write:    fd: %d    buffer: 0x%x    count: %d" % (fd, buffer, count))
         buffer = memory.read(buffer, count)
         ret = os.write(fd, buffer)
     elif s == Syscall.SYS_mkdir:
@@ -334,6 +341,10 @@ def syscall(s, a0=0, a1=0, a2=0, a3=0, a4=0, a5=0):
                 print(rvem, e)
     elif s == Syscall.SYS_init:
         print(rvem, "ecall init")
+        #pygame.init()
+        #global screen
+        #screen = pygame.display.set_mode((640, 480))
+        #pygame.display.set_caption(rvem)
     elif s == Syscall.SYS_draw:
         print(rvem, "ecall draw")
     elif s == Syscall.SYS_exit:
@@ -545,6 +556,6 @@ if __name__ == "__main__":
                 dump()
                 input()
             INSCOUNT += 1
-            if INSCOUNT % 100000 == 0:
+            if INSCOUNT % 1000000 == 0:
                 print(rvem, "Ran %d instructions" % INSCOUNT)
         print(rvem, "  ran %d instructions" % INSCOUNT)
