@@ -7,6 +7,7 @@ import os
 import struct
 import pygame
 
+import binascii
 from elftools.elf.elffile import ELFFile
 
 parser = argparse.ArgumentParser(
@@ -84,7 +85,7 @@ screen = None
 class Memory:
     def __init__(self):
         self.mem = {}
-        self.page_size = 4096
+        self.page_size = 4
         self.break_addr = original_break_addr
 
     def set_brk(self, set_to):
@@ -101,11 +102,11 @@ class Memory:
     def read(self, addr, sz):
         # Split up into 3 phases--beginning page, n middle pages, and a last page
         page = self.get_nth_page_addr(addr, 0)
+        #print(rvem, f"PC {hex(regfile[PC])}: read of size {sz} at address {hex(addr)} in page {hex(page)}")
         if page not in self.mem:
             print(rvem,
                 f"PC {hex(regfile[PC])}: Uninitialized read of size {sz} at address {hex(addr)} in page {hex(page)}")
             self.mem[page] = b'\x00'*self.page_size
-        next_page = self.get_nth_page_addr(addr, 1)
         offset_in_begin_page = addr - page
         begin_sz = min(sz, self.page_size - offset_in_begin_page)
         r = self.mem[page][offset_in_begin_page:(
@@ -117,7 +118,7 @@ class Memory:
         while sz > self.page_size:
             page = self.get_nth_page_addr(addr, pages_read)
             if page not in self.mem:
-                # print(f"PC {hex(regfile[PC])}: Uninitialized read of size {sz} at address {hex(addr)} in page {hex(page)}")
+                #print(f"PC {hex(regfile[PC])}: Uninitialized read of size {sz} at address {hex(addr)} in page {hex(page)}")
                 self.mem[page] = b'\x00'*self.page_size
             r += self.mem[page]
             pages_read += 1
@@ -127,7 +128,7 @@ class Memory:
         if sz > 0:
             page = self.get_nth_page_addr(addr, pages_read)
             if page not in self.mem:
-                # print(f"PC {hex(regfile[PC])}: Uninitialized read of size {sz} at address {hex(addr)} in page {hex(page)}")
+                #print(f"PC {hex(regfile[PC])}: Uninitialized read of size {sz} at address {hex(addr)} in page {hex(page)}")
                 self.mem[page] = b'\x00'*self.page_size
             r += self.mem[page][:sz]
 
@@ -169,8 +170,14 @@ class Memory:
 def reset():
     global regfile, memory
     regfile = Regfile()
-    regfile.set("sp", 0xffffffff) # stack pointer reset to the highest address
     memory = Memory()  # OldMemory()
+    memory.write(0xfffffffc, b'\x00'*4) # https://github.com/riscvarchive/riscv-newlib/blob/77e11e1800f57cac7f5468b2bd064100a44755d4/libgloss/riscv/crt0.S#L38
+                                        # newlib c runtime expects int argc to be at the stack pointer and reads it into a0? so i guess just write 0 to initialize the memory to avoid uninitialized read prints from the memory class
+    regfile.set("sp", 0xfffffffc)       # stack pointer reset to the highest address minus 4
+    regfile.set("a0", 0)
+    regfile.set("a1", 0)
+    regfile.set("a2", 0)
+    
 
 
 # RV32I Base Instruction Set
@@ -281,7 +288,8 @@ def syscall(s, a0=0, a1=0, a2=0, a3=0, a4=0, a5=0):
     if s == Syscall.SYS_close:
         fd = a0
         if fd == 0 or fd == 1 or fd == 2:
-            print(rvem, "program tried to close one of stdin, stdout, or stderr. Ignoring")
+            #print(rvem, "program tried to close one of stdin, stdout, or stderr. Ignoring")
+            pass
         else:
             #print(rvem, "ecall close fd", fd)
             os.close(fd)
@@ -300,6 +308,7 @@ def syscall(s, a0=0, a1=0, a2=0, a3=0, a4=0, a5=0):
             ret = -1
     elif s == Syscall.SYS_fstat:
         print(rvem, "ecall fstat")
+        ret = -1
     elif s == Syscall.SYS_isatty:
         raise Exception(
             "What is the system call isatty from puts.c in newlib? It didnt seem to be called but here we are. I added SYS_isatty = -1 just so it can be caught here")
@@ -307,8 +316,10 @@ def syscall(s, a0=0, a1=0, a2=0, a3=0, a4=0, a5=0):
         fd = a0
         pos = a1
         how = a2
-        ret = os.lseek(fd, pos, how)
-        #print(rvem, "ecall lseek", "fd", fd, "pos", pos, "how", how, "ret", ret)
+        #print(rvem, "ecall lseek", "fd", fd, "pos", pos, "how", how)
+        if fd != 0 and fd != 1 and fd != 2:
+            ret = os.lseek(fd, pos, how)
+        print(rvem, "PC: ", hex(regfile[PC]), "ecall lseek", "fd", fd, "pos", pos, "how", how, "ret", ret)
     elif s == Syscall.SYS_read:
         fd = a0
         buf_addr = a1
@@ -316,7 +327,8 @@ def syscall(s, a0=0, a1=0, a2=0, a3=0, a4=0, a5=0):
         data = os.read(fd, count)
         memory.write(buf_addr, data)
         ret = len(data)
-        print(rvem, "ecall read", "fd", fd, "buf_addr", hex(buf_addr), "count", count, "data", data, "ret", ret)
+        #print(rvem, "ecall read", "fd", fd, "buf_addr", hex(buf_addr), "count", count, "data", data, "ret", ret)
+        print(rvem, "ecall read", "fd", fd, "buf_addr", hex(buf_addr), "count", count, "ret", ret)
     elif s == Syscall.SYS_brk:
         set_to = a0
         #print("  ecall brk:\n    a0: %d" % (set_to))
@@ -327,6 +339,8 @@ def syscall(s, a0=0, a1=0, a2=0, a3=0, a4=0, a5=0):
         count = a2
         #if fd != 0 and fd != 1 and fd != 2:
             #print("  ecall write:    fd: %d    buffer: 0x%x    count: %d" % (fd, buffer, count))
+        if fd == 0:
+            raise Exception(rvem, "write tried to write to stdin")
         buffer = memory.read(buffer, count)
         ret = os.write(fd, buffer)
     elif s == Syscall.SYS_mkdir:
@@ -348,7 +362,7 @@ def syscall(s, a0=0, a1=0, a2=0, a3=0, a4=0, a5=0):
     elif s == Syscall.SYS_draw:
         print(rvem, "ecall draw")
     elif s == Syscall.SYS_exit:
-        print(rvem, "ecall exit")
+        #print(rvem, "ecall exit")
         sys.exit()
     else:
         raise Exception("Unimplemented system call %d" % s.value)
@@ -522,7 +536,7 @@ def step():
         old_pc = regfile[PC]
         regfile[PC] = pend
         if regfile[PC] == old_pc:
-            print(rvem, "Instruction jumped to itself. Doom does this on error. Exiting.")
+            print(rvem, "Instruction jumped to itself. Doom Generic does this on error. Exiting.")
             sys.exit(1)
     else:
         if reg_writeback:
@@ -540,7 +554,7 @@ if __name__ == "__main__":
             if s.header.p_flags == 6:
                 # if flags RW were set (out of RWE with R=4, W=2, E=1?) in this segment, it's the segment with the data section
                 # find the heap address and set it to the break address (fancy name for "end of segment with the data section")
-                original_break_addr = s.header.p_offset + s.header.p_memsz
+                original_break_addr = 0xC0000000 #s.header.p_offset + s.header.p_memsz + 0x100000 # nick: this doesnt seem to work properly :*( since malloc'd buffers seem to overflow into the program
                 memory.break_addr = original_break_addr
                 print(rvem, "Heap start is 0x%x" % original_break_addr)
 
@@ -549,13 +563,19 @@ if __name__ == "__main__":
         INSCOUNT = 0
         hit_bp = False
         needs_break = False
-        while step():
-            if hit_bp or needs_break: # regfile[PC] == 0x20110 or 
-                hit_bp = True
-                print(rvem, "Breakpoint")
-                dump()
-                input()
-            INSCOUNT += 1
-            if INSCOUNT % 1000000 == 0:
-                print(rvem, "Ran %d instructions" % INSCOUNT)
+        try:
+            while step():
+                #print(rvem, "PC:", hex(regfile[PC]))
+                if hit_bp or needs_break: # regfile[PC] == 0x20110 or 
+                    hit_bp = True
+                    print(rvem, "Breakpoint")
+                    dump()
+                    input()
+                INSCOUNT += 1
+                if INSCOUNT % 1000000 == 0:
+                    print(rvem, "Ran %d instructions" % INSCOUNT)
+        except Exception as e:
+            print(rvem, "Error, dumping...")
+            dump()
+            raise
         print(rvem, "  ran %d instructions" % INSCOUNT)
