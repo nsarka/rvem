@@ -6,6 +6,7 @@ import sys
 import os
 import struct
 import pygame
+import datetime
 
 import binascii
 from elftools.elf.elffile import ELFFile
@@ -26,7 +27,7 @@ print(rvem, "Running test", args.binary, "with verbose set to", args.verbose)
 
 needs_break = False
 
-# start of geohot emul program
+time_launch = datetime.datetime.now()
 
 
 regnames = \
@@ -277,8 +278,10 @@ class Syscall(Enum):
     SYS_time = 1062
     SYS_getmainvars = 2011
     SYS_isatty = -1
-    SYS_init = 0xbeef0 # init
-    SYS_draw = 0xbeef1 # draw
+    SYS_init = 0xbeef0 # for doom
+    SYS_draw = 0xbeef1 # for doom
+    SYS_getticks = 0xbeef2 # for doom
+    SYS_sleep = 0xbeef3 # for doom
 
 
 def syscall(s, a0=0, a1=0, a2=0, a3=0, a4=0, a5=0):
@@ -355,15 +358,29 @@ def syscall(s, a0=0, a1=0, a2=0, a3=0, a4=0, a5=0):
                 print(rvem, e)
     elif s == Syscall.SYS_init:
         print(rvem, "ecall init")
-        #pygame.init()
-        #global screen
-        #screen = pygame.display.set_mode((640, 480))
-        #pygame.display.set_caption(rvem)
+        pygame.init()
+        global screen
+        screen = pygame.display.set_mode((640, 480))
+        pygame.display.set_caption(rvem)
     elif s == Syscall.SYS_draw:
         print(rvem, "ecall draw")
+        #ecall_func(0xbeef1, (uint32_t)DG_ScreenBuffer, DOOMGENERIC_RESX * sizeof(uint32_t), DOOMGENERIC_RESY * sizeof(uint32_t));
+        buffer_addr = a0
+        resx_bytes = a1
+        resy_bytes = a2
+        buffer = memory.read(buffer, resx_bytes * resy_bytes)
+        surf = pygame.surfarray.make_surface(buffer)
+        screen.blit(surf, (0, 0))
+        pygame.screen.update()
     elif s == Syscall.SYS_exit:
         #print(rvem, "ecall exit")
         sys.exit()
+    elif s == Syscall.SYS_getticks:
+        print(rvem, "ecall getticks")
+        time_now = datetime.datetime.now()
+        ret = ((time_now - time_launch).microseconds) / 1000
+    elif s == Syscall.SYS_sleep:
+        print(rvem, "ecall sleep")
     else:
         raise Exception("Unimplemented system call %d" % s.value)
     return ret  # return value goes into a0
