@@ -9,6 +9,7 @@ import pygame
 import datetime
 import time
 import binascii
+import numpy
 from elftools.elf.elffile import ELFFile
 
 parser = argparse.ArgumentParser(
@@ -365,12 +366,15 @@ def syscall(s, a0=0, a1=0, a2=0, a3=0, a4=0, a5=0):
         ret = 1337
     elif s == Syscall.SYS_draw:
         print(rvem, "ecall draw")
-        #ecall_func(0xbeef1, (uint32_t)DG_ScreenBuffer, DOOMGENERIC_RESX * sizeof(uint32_t), DOOMGENERIC_RESY * sizeof(uint32_t));
+        # ecall_func(0xbeef1, (uint32_t)DG_ScreenBuffer, DOOMGENERIC_RESX, DOOMGENERIC_RESY);
         buffer_addr = a0
-        resx_bytes = a1
-        resy_bytes = a2
-        buffer = memory.read(buffer_addr, resx_bytes * resy_bytes)
-        surf = pygame.surfarray.make_surface(buffer)
+        resx = a1
+        resy = a2
+        buffer = memory.read(buffer_addr, resx * resy * 4)
+        print(buffer)
+        arr = numpy.frombuffer(buffer, numpy.uint8)
+        arr.reshape(640, 400, 4)
+        surf = pygame.surfarray.make_surface(arr)
         screen.blit(surf, (0, 0))
         pygame.screen.update()
     elif s == Syscall.SYS_exit:

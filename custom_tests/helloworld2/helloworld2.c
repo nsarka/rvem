@@ -3,6 +3,9 @@
 #include <string.h>
 #include <stdint.h>
 
+#define DOOMGENERIC_RESX 640
+#define DOOMGENERIC_RESY 400
+
 uint32_t ecall_func(uint32_t num, uint32_t a0, uint32_t a1, uint32_t a2)
 {
     uint32_t res;
@@ -19,7 +22,9 @@ uint32_t ecall_func(uint32_t num, uint32_t a0, uint32_t a1, uint32_t a2)
 }
 
 int main() {
+    char* DG_ScreenBuffer = malloc(DOOMGENERIC_RESX * DOOMGENERIC_RESY * sizeof(uint32_t));
     uint32_t ret = ecall_func(0xbeef0, 0, 0, 0);
-    printf("ret value was: %d\n", ret);
+    printf("ret value from init was: %d\n", ret);
+    ecall_func(0xbeef1, (uint32_t)DG_ScreenBuffer, DOOMGENERIC_RESX, DOOMGENERIC_RESY);
     return 0;
 }
