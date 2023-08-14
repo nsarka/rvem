@@ -350,7 +350,7 @@ def syscall(s, a0=0, a1=0, a2=0, a3=0, a4=0, a5=0):
         path_addr = a0
         path = memory.read(path_addr, 256).split(b'\x00')[0].decode()
         mode = a1
-        #print(rvem, "ecall mkdir:", path, mode)
+        print(rvem, "ecall mkdir:", path, mode)
         try:
             ret = os.mkdir(path, mode)
         except OSError as e:
@@ -362,6 +362,7 @@ def syscall(s, a0=0, a1=0, a2=0, a3=0, a4=0, a5=0):
         global screen
         screen = pygame.display.set_mode((640, 480))
         pygame.display.set_caption(rvem)
+        ret = 1337
     elif s == Syscall.SYS_draw:
         print(rvem, "ecall draw")
         #ecall_func(0xbeef1, (uint32_t)DG_ScreenBuffer, DOOMGENERIC_RESX * sizeof(uint32_t), DOOMGENERIC_RESY * sizeof(uint32_t));
