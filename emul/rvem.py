@@ -310,7 +310,7 @@ def syscall(s, a0=0, a1=0, a2=0, a3=0, a4=0, a5=0):
             print(rvem, e)
             ret = -1
     elif s == Syscall.SYS_fstat:
-        print(rvem, "ecall fstat")
+        #print(rvem, "ecall fstat")
         ret = -1
     elif s == Syscall.SYS_isatty:
         raise Exception(
@@ -322,7 +322,7 @@ def syscall(s, a0=0, a1=0, a2=0, a3=0, a4=0, a5=0):
         #print(rvem, "ecall lseek", "fd", fd, "pos", pos, "how", how)
         if fd != 0 and fd != 1 and fd != 2:
             ret = os.lseek(fd, pos, how)
-        print(rvem, "PC: ", hex(regfile[PC]), "ecall lseek", "fd", fd, "pos", pos, "how", how, "ret", ret)
+        #print(rvem, "PC: ", hex(regfile[PC]), "ecall lseek", "fd", fd, "pos", pos, "how", how, "ret", ret)
     elif s == Syscall.SYS_read:
         fd = a0
         buf_addr = a1
@@ -331,7 +331,7 @@ def syscall(s, a0=0, a1=0, a2=0, a3=0, a4=0, a5=0):
         memory.write(buf_addr, data)
         ret = len(data)
         #print(rvem, "ecall read", "fd", fd, "buf_addr", hex(buf_addr), "count", count, "data", data, "ret", ret)
-        print(rvem, "ecall read", "fd", fd, "buf_addr", hex(buf_addr), "count", count, "ret", ret)
+        #print(rvem, "ecall read", "fd", fd, "buf_addr", hex(buf_addr), "count", count, "ret", ret)
     elif s == Syscall.SYS_brk:
         set_to = a0
         #print("  ecall brk:\n    a0: %d" % (set_to))
@@ -350,7 +350,7 @@ def syscall(s, a0=0, a1=0, a2=0, a3=0, a4=0, a5=0):
         path_addr = a0
         path = memory.read(path_addr, 256).split(b'\x00')[0].decode()
         mode = a1
-        print(rvem, "ecall mkdir:", path, mode)
+        #print(rvem, "ecall mkdir:", path, mode)
         try:
             ret = os.mkdir(path, mode)
         except OSError as e:
@@ -376,13 +376,13 @@ def syscall(s, a0=0, a1=0, a2=0, a3=0, a4=0, a5=0):
         #print(rvem, "ecall exit")
         sys.exit()
     elif s == Syscall.SYS_getticks:
-        print(rvem, "ecall getticks")
         time_now = datetime.datetime.now()
         ret = ((time_now - time_launch)).seconds * 1000
+        print(rvem, "ecall getticks", ret)
     elif s == Syscall.SYS_sleep:
-        print(rvem, "ecall sleep")
         time_ms = a0
-        time.sleep(time_ms * 1000) # seconds
+        print(rvem, "ecall sleep", time_ms)
+        time.sleep(time_ms / 1000) # seconds
     else:
         raise Exception("Unimplemented system call %d" % s.value)
     return ret  # return value goes into a0
