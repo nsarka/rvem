@@ -7,7 +7,7 @@ import os
 import struct
 import pygame
 import datetime
-
+import time
 import binascii
 from elftools.elf.elffile import ELFFile
 
@@ -368,7 +368,7 @@ def syscall(s, a0=0, a1=0, a2=0, a3=0, a4=0, a5=0):
         buffer_addr = a0
         resx_bytes = a1
         resy_bytes = a2
-        buffer = memory.read(buffer, resx_bytes * resy_bytes)
+        buffer = memory.read(buffer_addr, resx_bytes * resy_bytes)
         surf = pygame.surfarray.make_surface(buffer)
         screen.blit(surf, (0, 0))
         pygame.screen.update()
@@ -378,9 +378,11 @@ def syscall(s, a0=0, a1=0, a2=0, a3=0, a4=0, a5=0):
     elif s == Syscall.SYS_getticks:
         print(rvem, "ecall getticks")
         time_now = datetime.datetime.now()
-        ret = ((time_now - time_launch).microseconds) / 1000
+        ret = ((time_now - time_launch)).seconds * 1000
     elif s == Syscall.SYS_sleep:
         print(rvem, "ecall sleep")
+        time_ms = a0
+        time.sleep(time_ms * 1000) # seconds
     else:
         raise Exception("Unimplemented system call %d" % s.value)
     return ret  # return value goes into a0
