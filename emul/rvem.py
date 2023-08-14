@@ -354,7 +354,7 @@ def syscall(s, a0=0, a1=0, a2=0, a3=0, a4=0, a5=0):
         try:
             ret = os.mkdir(path, mode)
         except OSError as e:
-            if e.errno != 17:
+            if e.errno != 17: # path already exists
                 print(rvem, e)
     elif s == Syscall.SYS_init:
         print(rvem, "ecall init")
