@@ -361,7 +361,7 @@ def syscall(s, a0=0, a1=0, a2=0, a3=0, a4=0, a5=0):
         print(rvem, "ecall init")
         pygame.init()
         global screen
-        screen = pygame.display.set_mode((640, 480))
+        screen = pygame.display.set_mode((640, 400))
         pygame.display.set_caption(rvem)
         ret = 1337
     elif s == Syscall.SYS_draw:
@@ -371,12 +371,14 @@ def syscall(s, a0=0, a1=0, a2=0, a3=0, a4=0, a5=0):
         resx = a1
         resy = a2
         buffer = memory.read(buffer_addr, resx * resy * 4)
-        print(buffer)
         arr = numpy.frombuffer(buffer, numpy.uint8)
-        arr.reshape(640, 400, 4)
-        surf = pygame.surfarray.make_surface(arr)
+        arr = arr.reshape(640, 400, 4)
+        arr = arr[:,:,:3]
+        print(arr)
+        surf = pygame.Surface((640, 400))
+        pygame.surfarray.blit_array(surf, arr)
         screen.blit(surf, (0, 0))
-        pygame.screen.update()
+        pygame.display.update()
     elif s == Syscall.SYS_exit:
         #print(rvem, "ecall exit")
         sys.exit()

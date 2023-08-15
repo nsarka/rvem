@@ -22,9 +22,18 @@ uint32_t ecall_func(uint32_t num, uint32_t a0, uint32_t a1, uint32_t a2)
 }
 
 int main() {
-    char* DG_ScreenBuffer = malloc(DOOMGENERIC_RESX * DOOMGENERIC_RESY * sizeof(uint32_t));
+    uint32_t* DG_ScreenBuffer = (uint32_t*)malloc(DOOMGENERIC_RESX * DOOMGENERIC_RESY * sizeof(uint32_t));
     uint32_t ret = ecall_func(0xbeef0, 0, 0, 0);
     printf("ret value from init was: %d\n", ret);
-    ecall_func(0xbeef1, (uint32_t)DG_ScreenBuffer, DOOMGENERIC_RESX, DOOMGENERIC_RESY);
+    uint32_t val = (0 << 0) | (0 << 8) | (255 << 16) | (0 << 24);
+    printf("setting color to %d\n", val);
+    for (int j = 0; j < DOOMGENERIC_RESX * DOOMGENERIC_RESY; j += 1) {
+        DG_ScreenBuffer[j] = val;
+    }
+    int i = 0;
+    while (i < 5) {
+        ecall_func(0xbeef1, (uint32_t)DG_ScreenBuffer, DOOMGENERIC_RESX, DOOMGENERIC_RESY);
+        i++;
+    }
     return 0;
 }
