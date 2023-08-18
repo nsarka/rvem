@@ -2,7 +2,7 @@
 
 So far, this is based on George Hotz' emulator here: https://github.com/geohot/twitchcore/blob/master/cpu.py
 
-What I did was change the memory system from a flat 16kb array to a dictionary of 4kb pages, and implement system calls so that I can compile and run C programs with the RISC-V gnu toolchain that uses newlib.
+What I did was change the memory system from a flat 16kb array to a dictionary of 4kb pages (to support load/stores on addresses >16kb), and implement system calls so that I can compile and run C programs with the RISC-V gnu toolchain that uses newlib.
 
 It runs Doom using Doomgeneric (github.com/ozkl/doomgeneric), a framebuffer based portable version of Doom. After every frame, the Doom draw function executes `ecall` with a custom system call I made that takes a pointer to the framebuffer. The syscall draws it to the screen using Pygame.
 
