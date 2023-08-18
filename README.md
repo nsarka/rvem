@@ -1,6 +1,6 @@
 # rvem: a RISC-V Emulator
 
-So far, this is based on George Hotz' emulator here: [https://github.com/nsarka/twitchcore/blob/master/cpu.py](https://github.com/geohot/twitchcore/blob/master/cpu.py)
+So far, this is based on George Hotz' emulator here: https://github.com/geohot/twitchcore/blob/master/cpu.py
 
 What I did was change the memory system from a flat 16kb array to a dictionary of 4kb pages, and implement system calls so that I can compile and run C programs with the RISC-V gnu toolchain that uses newlib.
 
