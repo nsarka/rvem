@@ -6,7 +6,7 @@ What I did was change the memory system from a flat 16kb array to a dictionary o
 
 It runs Doom using Doomgeneric (github.com/ozkl/doomgeneric), a framebuffer based portable version of Doom. After every frame, the Doom draw function executes `ecall` with a custom system call I made that takes a pointer to the framebuffer. The syscall draws it to the screen using Pygame.
 
-The emulator runs slowly since it's implemented in Python. I measured it to execute ~100,000 instructions per second on my Intel Core i9-9900k.
+The emulator runs slowly since it's implemented in Python. I measured it to execute ~100,000 instructions per second on my pc (an Intel Core i9-9900k).
 
 ## Setup for Ubuntu WSL
 
